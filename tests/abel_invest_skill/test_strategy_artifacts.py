@@ -682,6 +682,101 @@ def test_paper_smoke_context_uses_prepared_cache_feeds(tmp_path):
     assert context["_promotion_validation"]["feedMode"] == "prepared_cache"
 
 
+def test_paper_smoke_context_preserves_packaged_canonical_feed(tmp_path):
+    branch = tmp_path / "branch"
+    runtime = tmp_path / "runtime"
+    source_aapl = tmp_path / "cache" / "AAPL.csv"
+    _write_market_feed(source_aapl, "AAPL", [10.0, 11.0])
+    (branch / "inputs").mkdir(parents=True)
+    runtime.mkdir(parents=True)
+    (runtime / "dependencies.json").write_text(
+        json.dumps(
+            {
+                "target": "AAPL",
+                "selected_inputs": [],
+                "canonical_series_end": "2024-01-02",
+                "cache": {
+                    "results": [
+                        {
+                            "symbol": "AAPL",
+                            "ok": True,
+                            "data_path": str(source_aapl),
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    series_spec = {
+        "contract": "abel-edge.point-in-time-series/v1",
+        "series_id": "macro.example.release",
+        "source": {
+            "adapter": "abel",
+            "request": {
+                "node_id": "macro.example.release",
+                "retrieval_mode": "node_series",
+            },
+        },
+        "schema": {
+            "event_time_field": "event_time",
+            "available_at_field": "timestamp",
+            "value_field": "value",
+        },
+        "materialization": {
+            "frequency": "irregular",
+            "timezone": "UTC",
+            "missing_policy": "none",
+            "alignment_policy": "asof",
+        },
+        "transforms": [],
+        "availability": {"mode": "explicit"},
+        "provenance": {"source_receipt_sha256": "c" * 64},
+    }
+    alias = "graph_node_existing_alias"
+    (runtime / "data_manifest.json").write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "feeds": [
+                    {
+                        "name": alias,
+                        "kind": "point_in_time_series",
+                        "adapter": "abel",
+                        "series_spec": series_spec,
+                        "series_spec_sha256": "d" * 64,
+                        "series_receipt_sha256": "c" * 64,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    context = _paper_smoke_context(
+        SimpleNamespace(
+            branch=branch,
+            branch_id="candidate",
+            ticker="AAPL",
+            edge_result={"effective_window": {"end": "2024-01-02"}},
+        ),
+        strategy_dir=tmp_path / "strategy",
+        runtime_dir=runtime,
+        state_dir=tmp_path / "state",
+        workspace_dir=tmp_path / "workspace",
+    )
+
+    assert context["_feeds"][alias] == {
+        "name": alias,
+        "kind": "point_in_time_series",
+        "adapter": "abel",
+        "series_spec": series_spec,
+        "profile": "daily",
+    }
+    assert "source_end" not in context["_feeds"][alias]
+    assert context["_feeds"]["primary"]["adapter"] == "csv"
+
+
 def test_paper_smoke_context_rejects_missing_prepared_feed(tmp_path):
     branch = tmp_path / "branch"
     runtime = tmp_path / "runtime"
