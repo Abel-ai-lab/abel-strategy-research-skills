@@ -4,6 +4,20 @@ All notable changes to `causal-abel` will be documented in this file.
 
 This project follows a repo-level release log so agents can summarize user-visible changes across GitHub and ClawHub-facing revisions.
 
+## [1.4.7] - 2026-09-09
+
+### Changed
+
+- Updated Abel Invest to version `3.8.2` and raised its Abel Edge dependency
+  window to `>=0.9.1,<0.10.0`.
+
+### Fixed
+
+- Loaded packaged V4 canonical point-in-time feeds during promotion smoke while
+  preserving their stored aliases and exact series specifications.
+- Kept target and symbol promotion feeds on prepared CSV bars and left existing
+  research, artifact, and upload behavior unchanged.
+
 ## [1.4.6] - 2026-08-22
 
 ### Added
