@@ -906,6 +906,29 @@ def _paper_smoke_context(
             fields=fields,
             path=staged_feeds[symbol]["path"],
         )
+    data_manifest = _load_json_object_if_exists(runtime_dir / "data_manifest.json")
+    for item in data_manifest.get("feeds") or []:
+        if not isinstance(item, dict):
+            continue
+        if _clean(item.get("kind")).lower() != "point_in_time_series":
+            continue
+        name = _clean(item.get("name"))
+        adapter = _clean(item.get("adapter"))
+        series_spec = item.get("series_spec")
+        if not name or not adapter or not isinstance(series_spec, dict):
+            raise ValueError(
+                "paper_run_one smoke canonical feeds require name, adapter, "
+                "and series_spec"
+            )
+        if name in feeds:
+            raise ValueError(f"paper_run_one smoke feed name is duplicated: {name}")
+        feeds[name] = {
+            "name": name,
+            "kind": "point_in_time_series",
+            "adapter": adapter,
+            "series_spec": series_spec,
+            "profile": _clean(item.get("profile")) or "daily",
+        }
     requested_start = _clean(dependencies.get("requested_start"))
     return {
         "id": _clean(candidate.branch_id) or "paper_smoke_strategy",
